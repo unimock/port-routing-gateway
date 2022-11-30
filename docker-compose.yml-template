@@ -1,0 +1,56 @@
+version: '2'
+services:
+  ch01:
+    ##################################################
+    # BUILD - section
+    ##################################################
+    build:
+      context: ./build
+      dockerfile: Dockerfile
+    ##################################################
+    # RUN / UP - section
+    ##################################################
+    image: ${DC_ENV_IMAGE}
+    container_name: ${DC_ENV_NAME}
+    restart: unless-stopped
+    hostname: ${DC_ENV_TRAEFIK_URL}
+    cap_add:
+      # allow netstat to show processes belonging to listening ports 
+      - SYS_PTRACE
+    volumes:
+      - ./persistent:/persistent
+      - ./service:/service
+      - ./home:/home
+    environment:
+      - SERVER_SSHD_PORT=${DC_ENV_SSHD_PORT}
+      - TZ=${DC_ENV_TZ}
+      - CLIENT_WSS_URL=${DC_ENV_WST_URL}
+      - SERVER_SWAKS_PARAM=${DC_ENV_SWAKS_PARAM} 
+      #- CRON_STRINGS=0 * * * * /usr/local/bin/logrotate\n0 1 * * * root /usr/local/bin/logrotate
+    ports:
+      - "${DC_ENV_SSHD_PORT}:22"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_default"
+      - "traefik.http.middlewares.auth.basicauth.users=${DC_ENV_TRAEFIK_AUTH}"
+      - "traefik.http.middlewares.auth.basicauth.removeheader=true"
+      - "traefik.http.middlewares.redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.${DC_ENV_NAME}-insecure.entrypoints=http"
+      - "traefik.http.routers.${DC_ENV_NAME}-insecure.rule=Host(`${DC_ENV_TRAEFIK_URL}`)"
+      - "traefik.http.routers.${DC_ENV_NAME}-insecure.middlewares=redirect"
+      - "traefik.http.routers.${DC_ENV_NAME}.entrypoints=https"
+      - "traefik.http.routers.${DC_ENV_NAME}.rule=Host(`${DC_ENV_TRAEFIK_URL}`)"
+      - "traefik.http.routers.${DC_ENV_NAME}.tls=true"
+      - "traefik.http.routers.${DC_ENV_NAME}.tls.certresolver=http"
+      - "traefik.http.routers.${DC_ENV_NAME}.middlewares=auth"
+      - "traefik.http.services.${DC_ENV_NAME}.loadbalancer.server.port=${DC_ENV_TRAEFIK_PORT}"
+    mem_limit: 100m
+    networks:
+      - traefik_default
+      - default
+
+networks:
+  default:
+  traefik_default:
+    external: true
+ 

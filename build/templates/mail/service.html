@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html> 
+
+<head>
+<style media="screen"> 
+    p { color: black; font-size: 1.1em } 
+    pre { color: navy; font-size: 0.9em } 
+    code { font-family: Courier; color: navy; background-color: rgb(225, 225, 231) } 
+ </style>
+</head>       
+    
+<body>
+<br>	
+You are registered as a service-user at the service-gateway  <b>TEMPLATE_HOSTNAME</b>
+<br>
+This enables you to establish port forwarding to different customer systems.<br>
+<br>
+To configure local port forwarding to the service-gateway,<br>
+copy the attached file into your  <i>~/.ssh/</i> directory and<br>
+append <b>Include config.*</b> to your existing <i>~/.ssh/config</i>:
+<br>
+<br>
+<code>
+ echo 'Include config.*' >> ~/.ssh/config
+</code>
+<br>
+<br>
+To establish local port forwarding to the customer system, enter:<br>
+<br>
+<code>
+ ssh &lsaquo;custom-name&rsaquo;
+</code>
+<br>
+<br>
+Here you will find further information.<br>
+As soon as you exit the console with <kbd>Ctrl + C</kbd> the local port forwarding will be terminated.<br>
+<br>
+You find the supported <b>&lsaquo;custom-name&rsaquo;</b> with:<br>
+<br>
+<code>
+  grep "^Host " ~/.ssh/TEMPLATE_SSH_CONFIG
+</code>
+<br>
+<br>
+</body>
+</html>
+

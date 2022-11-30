@@ -1,0 +1,210 @@
+#!/bin/bash
+# enable debug mode if desired
+if [[ "${DEBUG}" == "true" ]]; then 
+    set -x
+fi
+mkdir -p /var/users/
+############################################################
+# delete all created users, if script will be called inline
+#
+user_list=$( find /var/users -name "*.config"  2>/dev/null )
+
+for FI in ${user_list} ; do
+  . $FI
+  echo "delete user: ${USERS_USER}"
+  deluser ${USERS_USER} 2>/dev/null
+done
+group_list=" "
+for FI in ${user_list} ; do
+  . $FI
+  if [[ "${group_list}" != *" ${USERS_GROUP} "* ]] ; then
+    group_list="${group_list}${USERS_GROUP} "
+    echo "delete group: ${USERS_GROUP}"
+    delgroup ${USERS_GROUP} 2>/dev/null
+  fi
+done
+# delete sshd enties
+rm -f /etc/ssh/sshd_config.d/*
+rm -f /etc/sudoers.d/*
+rm -f /var/users/*.config
+
+############################################################
+# prepare users.conf
+#
+if [ -f /service/users.conf ] ; then
+  users=$( grep -v "^\##"   /service/users.conf )
+  cp /etc/users.header      /service/users.conf
+  printf "${users}\n" >>    /service/users.conf
+else
+  cp  /etc/users.header     /service/users.conf
+  cat /etc/users.init    >> /service/users.conf
+fi
+chmod 644                   /service/users.conf
+chown root:root             /service/users.conf
+echo "-------------------------------------------------------------------"
+grep -o '^[^#]*'            /service/users.conf
+echo "-------------------------------------------------------------------"
+############################################################
+# store ssh host keys persistent
+#
+if  ls  /persistent/sshd/ssh_host_* 1> /dev/null 2>&1; then
+  cp -a /persistent/sshd/ssh_host_*   /etc/ssh
+else
+  # Generate Host keys, if required
+  ssh-keygen -A
+  mkdir -p /persistent/sshd
+  cp -a /etc/ssh/ssh_host_* /persistent/sshd/
+fi
+
+mkdir -p /var/users/
+USERS=$( grep -o '^[^#]*' /service/users.conf | sed -e "s/ //g" )
+#USERS=$( echo "${USERS//\"}" )
+for USER in $USERS ; do
+  _USER=$(echo "${USER}"  | cut -d ';' -f 1)
+  FI=/var/users/${_USER}.config
+  echo USERS_USER=$(    echo "${USER}" | cut -d ';' -f 1) >> $FI
+  echo USERS_UID=$(     echo "${USER}" | cut -d ';' -f 2) >> $FI
+  echo USERS_GROUP=$(   echo "${USER}" | cut -d ';' -f 3) >> $FI
+  echo USERS_GID=$(     echo "${USER}" | cut -d ';' -f 4) >> $FI
+  echo USERS_LOGIN=$(   echo "${USER}" | cut -d ';' -f 5) >> $FI
+  echo USERS_TYPE=$(    echo "${USER}" | cut -d ';' -f 6) >> $FI
+  echo USERS_NAME=$(    echo "${USER}" | cut -d ';' -f 7) >> $FI
+  echo USERS_MAIL=$(    echo "${USER}" | cut -d ';' -f 8) >> $FI
+  echo USERS_WS_AUTH=$( echo "${USER}" | cut -d ';' -f 9) >> $FI
+done
+
+user_list=$( find /var/users -name "*.config"  2>/dev/null )
+
+#
+# check for clients management user and store its home directory
+#
+CLIENT_MGMT_DIR=""
+for FI in ${user_list} ; do
+  . $FI
+  if [ "${USERS_TYPE}" = "cl-mgmt" ] ; then
+    CLIENT_MGMT_DIR=/home/${USERS_USER}
+    CLIENT_MGMT_FI=$FI
+    mkdir -p /home/${USERS_USER}
+    break
+  fi
+done
+#
+# create list of requested groups
+#
+group_list=" "
+for FI in ${user_list} ; do
+  . $FI
+  if [[ "${group_list}" != *" ${USERS_GROUP}:${USERS_GID} "* ]] ; then
+    group_list="${group_list}${USERS_GROUP}:${USERS_GID} "
+  fi
+done
+echo "group_list: <${group_list}>"
+
+#
+# add groups
+#
+for i in ${group_list} ; do
+  group=${i%:*}
+  gid=${i#*:}
+  if getent group "${gid}" &>/dev/null ; then
+    echo " gid=${gid} already exists!!!"
+    exit 1
+  else
+    addgroup -g "${gid}" "${group}"
+  fi
+done
+#
+# add users
+#
+for FI in ${user_list} ; do
+  . $FI
+  echo "${USERS_USER}: uid=${USERS_UID} group=${USERS_GROUP} gid=${USERS_GID} login=${USERS_LOGIN} type=${USERS_TYPE} name=${USERS_NAME} ws_auth=${USERS_WS_AUTH}"
+  if [ "${USERS_LOGIN}" = "0"   ] ; then
+    adduser -s "/bin/false" -D -u "${USERS_UID}" -G "${USERS_GROUP}" "${USERS_USER}"
+  else
+    adduser -s "/bin/bash" -D -u "${USERS_UID}" -G "${USERS_GROUP}" "${USERS_USER}"
+    HASH=$(hexdump -e '"%02x"' -n 8 /dev/urandom)
+    usermod -p "$HASH" ${USERS_USER}
+    # establish sudo users 
+    if [ "${USERS_LOGIN}" = "2" ] ; then
+      echo "${USERS_USER} ALL=(ALL)       NOPASSWD: ALL" > /etc/sudoers.d/${USERS_USER}
+      chmod 640 /etc/sudoers.d/${USERS_USER}
+    fi
+  fi
+  #
+  if [ "${USERS_TYPE}" = "client" ] ; then
+    # prepare initial password less ssh keys for client_install .tgz package
+    if [ ! -f ${CLIENT_MGMT_DIR}/${USERS_NAME}/initial_client_keys/id_ed25519 ] ; then
+       mkdir -p ${CLIENT_MGMT_DIR}/${USERS_NAME}/initial_client_keys
+       ssh-keygen -q -N "" -o -a 100 -t ed25519 -f ${CLIENT_MGMT_DIR}/${USERS_NAME}/initial_client_keys/id_ed25519 -C "initial_ssh_keys@${USERS_USER}"
+    fi
+    # establish client-user initial authorized_keys if no authorized_key file exist
+    if [ ! -f   /home/${USERS_USER}/.ssh/authorized_keys ] ; then
+       mkdir -p /home/${USERS_USER}/.ssh
+       cp ${CLIENT_MGMT_DIR}/${USERS_NAME}/initial_client_keys/id_ed25519.pub /home/${USERS_USER}/.ssh/authorized_keys
+    fi
+    #
+    CLIENT_GROUP_NAME=${USERS_GROUP}
+    if [ ! -f ${CLIENT_MGMT_DIR}/${USERS_NAME}/authorized_keys ] ; then
+      if [ -f ${CLIENT_MGMT_DIR}/service-autossh-id.pub ] ; then
+        cp ${CLIENT_MGMT_DIR}/service-autossh-id.pub ${CLIENT_MGMT_DIR}/${USERS_NAME}/authorized_keys
+      fi
+    fi
+    if [ -f /templates/ssh_config.server ] ; then
+      cp /templates/ssh_config.server                    ${CLIENT_MGMT_DIR}/${USERS_NAME}/ssh_config.template
+      sed -i -e "s|<CLIENT_AUTOSSH_PORT>|${USERS_UID}|g" ${CLIENT_MGMT_DIR}/${USERS_NAME}/ssh_config.template
+      sed -i -e "s|<USERS_USER>|${USERS_USER}|g"         ${CLIENT_MGMT_DIR}/${USERS_NAME}/ssh_config.template
+      sed -i -e "s|<USERS_WS_AUTH>|${USERS_WS_AUTH}|g"   ${CLIENT_MGMT_DIR}/${USERS_NAME}/ssh_config.template
+      if [ ! -f ${CLIENT_MGMT_DIR}/${USERS_NAME}/ssh_config ] ; then
+	cp ${CLIENT_MGMT_DIR}/${USERS_NAME}/ssh_config.template ${CLIENT_MGMT_DIR}/${USERS_NAME}/ssh_config
+      fi
+    fi
+    # do not allow logins for clients
+    FI=/etc/ssh/sshd_config.d/${USERS_USER}.conf
+    echo "Match User ${USERS_USER}"         >> $FI
+    echo '  PermitOpen 127.0.0.1:*'         >> $FI
+    echo '  X11Forwarding no'               >> $FI
+    echo '  AllowAgentForwarding no'        >> $FI
+    echo '  PermitTTY no'                   >> $FI
+    #
+    # create client installation package
+    #
+    TDIR=$( mktemp -d )
+    mkdir -p $TDIR/rfs/home/autossh/.ssh $TDIR/rfs/etc/systemd/system
+    cp /templates/client/install.sh                                        $TDIR
+    chmod a+x                                                              $TDIR
+    cp /templates/client/autossh-watchdog                                  $TDIR/rfs/home/autossh/autossh-watchdog
+    cp /home/clients.d/${USERS_NAME}/authorized_keys                       $TDIR/rfs/home/autossh/.ssh/authorized_keys
+    cp /home/clients.d/${USERS_NAME}/ssh_config                            $TDIR/rfs/home/autossh/.ssh/config
+    cp ${CLIENT_MGMT_DIR}/${USERS_NAME}/initial_client_keys/id_ed25519     $TDIR/rfs/home/autossh/.ssh/id_ed25519
+    cp ${CLIENT_MGMT_DIR}/${USERS_NAME}/initial_client_keys/id_ed25519.pub $TDIR/rfs/home/autossh/.ssh/id_ed25519.pub
+    cp /templates/client/autossh.service                                   $TDIR/rfs/etc/systemd/system
+    cp /templates/client/autossh-watchdog.service                          $TDIR/rfs/etc/systemd/system
+    tar -C $TDIR -czf /home/clients.d/${USERS_NAME}/client_install.tgz .
+    rm -rf $TDIR
+  fi
+  # establish sshd structures
+  if [ "${USERS_TYPE}" != "cl-mgmt" ] ; then
+    mkdir -p /home/${USERS_USER}/.ssh
+    touch /home/${USERS_USER}/.ssh/authorized_keys
+    chmod 0644 /home/${USERS_USER}/.ssh/authorized_keys
+    chmod 0755 /home/${USERS_USER}/.ssh
+  fi
+
+  if [ "${USERS_TYPE}" = "service" ] ; then
+    rm -f /home/${USERS_USER}/`basename ${CLIENT_MGMT_DIR}`
+    ln -s ${CLIENT_MGMT_DIR} /home/${USERS_USER}/`basename ${CLIENT_MGMT_DIR}`
+  fi
+  # set owner and group over hole directory
+  chown -Rf ${USERS_USER}:${USERS_GROUP} /home/${USERS_USER}
+
+done
+
+if [ "${CLIENT_MGMT_DIR}" != "" ] ; then
+  . ${CLIENT_MGMT_FI}
+  chown -R ${USERS_UID}:${USERS_GROUP} /home/${USERS_USER}
+  find /home/${USERS_USER} -type f -exec chmod 660 {} +
+  find /home/${USERS_USER} -type d -exec chmod 770 {} +
+fi
+
+exit 0

@@ -1,0 +1,28 @@
+#!/bin/bash
+cd ~
+
+LED="off"
+prev_led=""
+DELAY=10
+
+while true ; do
+  eval $(grep "#LF-6666:" .ssh/config | sed -e "s/.*#LF-[0-9]*: *//g" | sed -e "s/ *; */\n/g" | sed -e "s/^/sc_/g" | sed -e 's/\$/$sc_/g' )
+  if [ "$sc_type" = "watchdog" -a "$sc_polling" != "" ] ; then
+    DELAY=${sc_polling}
+  fi
+  U=$(sed -n '/Host autossh$/,$p'  .ssh/config | grep User | awk -F " " '{print $2 }')
+  ans=$(echo "$U" | netcat -N  127.0.0.1 6666)
+  if [ "$ans" = "ACK" ] ; then
+    LED="on"
+  else
+    LED="off"
+  fi
+  if [ "$prev_led" != "$LED" ] ; then
+    prev_led="$LED"
+    echo "LED=$LED" > ./LED.state
+    echo "connected=$LED"
+  fi
+  sleep $DELAY
+done
+
+exit 0

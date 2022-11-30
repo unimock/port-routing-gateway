@@ -1,0 +1,32 @@
+Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com
+ServerAliveInterval 10
+ServerAliveCountMax 3
+ExitOnForwardFailure yes
+StrictHostKeyChecking no
+
+Host autossh
+	User <USERS_USER>
+        Hostname 127.0.0.1
+	ProxyCommand /usr/local/bin/wstunnel --upgradeCredentials=<USERS_WS_AUTH> --websocketPingFrequencySec=30 -L stdio:127.0.0.1:22 <CLIENT_WSS_URL>
+        #################################################################
+        # #RF-<port>: <variable>=<value>;<variable>=<value>
+        #    supported variables:
+        #       port ... special local port on support-client
+        #       host ... special hostname on support-client 
+	#       type ... define special services (autossh)
+	#       desc ... site-description
+	#       info ... info output for support-client (command,url,..)
+        #################################################################
+	#LF-6666: type="watchdog" ; polling="5"  # every 5 seconds
+	LocalForward 6666 127.0.0.1:6666
+
+	#always request ssh back to myself on base of my id
+	#RF-<CLIENT_AUTOSSH_PORT>: type="autossh" ; desc="autossh-service"
+	RemoteForward <CLIENT_AUTOSSH_PORT> 127.0.0.1:22
+
+	#RF-14880: port="8080" ; host="librespeed.local" ; desc="Speedtest container" ; info="https://$host:$port"
+	#RemoteForward 14880 192.168.188.139:80
+	
+	#RF-14859: desc="Ubuntu VNC Server" ; info="vnc://<u>:<p>@127.0.0.1:14859"
+	#RemoteForward 14859 192.168.188.139:5901
+	

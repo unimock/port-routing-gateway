@@ -1,0 +1,251 @@
+#!/bin/bash
+
+_get_sc_vars()
+{
+  unset sc_port sc_host sc_desc sc_type sc_info sc_polling
+  eval $(grep "#RF-${2}:" ${1} | sed -e "s/.*#RF-[0-9]*: *//g" | sed -e "s/ *; */\n/g" | sed -e "s/^/sc_/g" | sed -e 's/\$/$sc_/g' )
+}
+
+
+if [ "$1" = "" ] ; then
+  printf "\nusage:\n"
+  printf "     `basename $0` state    # show port/forwarding states\n"
+  printf "     `basename $0` service  # print local support user configurations (.ssh/config, /etc/hosts)\n"
+  printf "     `basename $0` client   # manage clients configuration data)\n"
+  printf "     `basename $0` mail     # send client installtion packages or service-user informations\n"
+  exit 0
+fi
+
+
+CMD="$1"
+shift
+
+if [ "$CMD" = "mail" ] ; then
+  /usr/local/bin/mail $*
+  exit $?
+fi
+
+etc_hosts=$(mktemp)
+
+clients=""
+
+#
+# create clients list
+#
+list=$( ls /var/users/*.config 2>/dev/null )
+for i in $list ; do
+  . ${i}
+  if [ "${USERS_TYPE}" != "client" ] ; then
+    continue
+  fi
+  clients="${clients} ${USERS_USER}"
+done
+
+if [ "$CMD" = "client" ] ; then
+  _user=""
+  for u in $clients ; do
+    . /var/users/${u}.config
+    if [ "$1" != "" -a "$1" = "${USERS_NAME}" ] ; then
+       _user="${u}"
+       break
+    fi
+    #if [ "$1" = "" ] ; then
+    #  echo "${USERS_NAME} "
+    #fi    
+  done
+  if [ "$1" = "" -o  "${_user}" != "" -a "$2" = "" ] ; then
+     _name="<client-name>"
+    if [ "${_user}" != "" ] ; then
+      . /var/users/${_user}.config
+      _name="$USERS_NAME"
+    fi
+    printf "\nusage:\n\n"
+    printf " `basename $0` $CMD $_name login         # autossh login on client\n"
+    printf " `basename $0` $CMD $_name fetch         # fetch client autossh configuration files\n"
+    printf " `basename $0` $CMD $_name push          # push  client autossh configuration files\n"
+    printf " `basename $0` $CMD $_name compare       # compare last fetched against to push configurations\n"
+    printf " `basename $0` $CMD $_name modify config # modify ssh_config\n"
+    printf " `basename $0` $CMD $_name modify auth   # modify authorized_keys\n"
+    printf "\n"
+    exit 0
+  fi
+  if [ "${_user}"  = "" ] ; then
+    echo "error: invalid name given."
+    exit 1
+  fi
+  . /var/users/${_user}.config
+  port_list=$( grep -o '^[^#]*'  /home/clients.d/${USERS_NAME}/ssh_config | grep "Remote" | awk -F " " '{ print $2 }' )
+  PORT=""
+  for p in ${port_list} ; do
+    _get_sc_vars /home/clients.d/${USERS_NAME}/ssh_config ${p}
+    if [ "${sc_type}" = "autossh" ] ; then
+      PORT="${p}"
+    fi
+  done    
+  if [ "${PORT}" = "" ] ; then
+    echo "error: type=\"autossh\" missing in </home/clients.d/${USERS_NAME}/ssh_config>"
+    exit 1
+  fi
+  if [ "$2" = "push" -o "$2" = "fetch" ] ; then
+    cp  ../clients.d/service-autossh-id .ssh/service-autossh-id
+    chmod go-rwx  .ssh/service-autossh-id
+    if [[  `ssh-add -l` != *service* ]] ; then
+      ssh-add .ssh/service-autossh-id
+    fi
+  fi
+  if [ "$2" = "fetch" ] ; then
+    echo "  fetch .ssh/authorized_keys  -> /home/clients.d/${USERS_NAME}/authorized_keys.prev"
+    scp -q -P $PORT autossh@localhost:/home/autossh/.ssh/authorized_keys /home/clients.d/${USERS_NAME}/authorized_keys.prev
+    echo "  fetch .ssh/config           -> /home/clients.d/${USERS_NAME}/ssh_config.prev"
+    scp -q -P $PORT autossh@localhost:/home/autossh/.ssh/config          /home/clients.d/${USERS_NAME}/ssh_config.prev
+  fi
+  if [ "$2" = "push" ] ; then
+    echo "  push /home/clients.d/${USERS_NAME}/authorized_keys  ->  .ssh/authorized_keys"
+    scp -q -P $PORT /home/clients.d/${USERS_NAME}/authorized_keys  autossh@localhost:/home/autossh/.ssh/authorized_keys
+    echo "  push /home/clients.d/${USERS_NAME}/ssh_config       ->  .ssh/config"
+    scp -q -P $PORT /home/clients.d/${USERS_NAME}/ssh_config       autossh@localhost:/home/autossh/.ssh/config
+    echo "  restart clients autossh service"
+    ssh -p $PORT autossh@localhost pkill -SIGUSR1 autossh 2>/dev/null
+  fi
+  if [ "$2" = "compare" ] ; then
+    printf "  compare /home/clients.d/${USERS_NAME}/ssh_config.prev      /home/clients.d/${USERS_NAME}/ssh_config:\n"
+    diff /home/clients.d/${USERS_NAME}/ssh_config.prev      /home/clients.d/${USERS_NAME}/ssh_config
+    printf "  compare /home/clients.d/${USERS_NAME}/authorized_keys.prev /home/clients.d/${USERS_NAME}/authorized_keys:\n"
+    diff /home/clients.d/${USERS_NAME}/authorized_keys.prev /home/clients.d/${USERS_NAME}/authorized_keys
+  fi
+  if [ "$2" = "login" ] ; then
+    ssh -p $PORT autossh@localhost
+  fi
+  if    [ "$2" = "modify" -a "$3" = "config" ] ; then
+    vi /home/clients.d/${USERS_NAME}/ssh_config
+  elif  [ "$2" = "modify" -a "$3" = "auth" ] ; then
+    vi /home/clients.d/${USERS_NAME}/authorized_keys
+  fi
+fi
+
+
+if [ "$CMD" = "service" ] ; then
+  . /var/server/environment
+  #echo "------- .ssh/config snip start ----------"
+  #echo ""
+  #echo "# service-host declaration"
+  #echo "Host $(hostname | cut -d "." -f1)"
+  #echo "    Hostname $(hostname)"
+  #echo "    Port ${SERVER_SSHD_PORT}"
+  #echo "    User ${USER}"
+  #echo "    ForwardAgent yes"
+  #echo ""
+  for c in ${clients} ; do
+    . /var/users/${c}.config
+    if [ ! -f /home/clients.d/${USERS_NAME}/ssh_config ] ; then
+      echo "error: /home/clients.d/${USERS_NAME}/ssh_config missing!"
+      continue
+    fi
+    echo ""
+    #echo "# service-client declaration"
+    echo "Host $USERS_NAME"
+    echo "    Hostname $(hostname)"
+    echo "    Port ${SERVER_SSHD_PORT}"
+    echo "    User ${USER}"
+    echo "    ForwardAgent yes"
+    echo "    RemoteCommand service_connect $USERS_NAME"
+    port_list=$( grep -o '^[^#]*'  /home/clients.d/${USERS_NAME}/ssh_config | grep "Remote" | awk -F " " '{ print $2 }' )
+    for p in ${port_list} ; do
+      _get_sc_vars /home/clients.d/${USERS_NAME}/ssh_config ${p}    
+      echo "    # ${sc_desc}"
+      if [ "${sc_info}" != "" ] ; then
+        echo "    # ${sc_info}"
+      fi
+      port="${p}"
+      if [ "${sc_port}" != "" ] ; then
+	port="${sc_port}"
+	if [ "${sc_host}" != "" ] ; then
+	  echo "127.0.0.1 ${sc_host}    # $USERS_NAME:${sc_desc}" >> ${etc_hosts}
+	fi
+      fi
+      echo "    LocalForward ${port} 127.0.0.1:$p"
+    done
+  done
+  echo ""
+
+  #echo "------- .ssh/config snip end -----------"
+  #echo ""
+  #echo ""
+  #echo ""
+  #echo "------- /etc/hosts snip start -----------"
+  #echo ""
+  #cat ${etc_hosts}
+  #echo ""
+  #echo "------- /etc/hosts snip end ------------"
+  #echo ""
+  rm -f ${etc_hosts}
+fi
+
+
+if [ "$CMD" = "state" ] ; then
+  
+  printf "\nclient informations:\n\n"
+  printf "%-12s %-14s %-20s %s\n" "name:" "user:" "last heartbeat:" "remarks:"
+  for c in ${clients} ; do
+    . /var/users/${c}.config
+    if [ ! -f /home/clients.d/${USERS_NAME}/watchdog.tstamp ] ; then
+      tstamp="never"
+    else
+      tstamp=$(date  -d @`cat /home/clients.d/${USERS_NAME}/watchdog.tstamp` +"%Y-%m-%d %H:%M:%S" )
+    fi
+    remarks=""
+    diff /home/clients.d/${USERS_NAME}/initial_client_keys/id_ed25519.pub /home/${USERS_USER}/.ssh/authorized_keys >/dev/null
+    if [ "$?" = "0" ] ; then
+      remarks="initial client keys active!"
+    fi
+    def_color='\e[m'
+    color="${def_color}"
+    if [ "${USERS_LOGIN}" = "0"  ] ; then
+       color='\033[1;30m'  # dark grey
+    fi
+    printf "${color}%-12s %-14s %-20s %s${def_color}\n" "${USERS_NAME}" "${USERS_USER}" "${tstamp}" "${remarks}"
+  done
+  #
+  # check ssh_config for clients
+  #
+  printf "\nconfigured forward ports:\n\n"
+  printf "%-12s %-7s %-22s %-8s%s\n" "name:" "port:"  "target:" "state:" ""
+  for c in ${clients} ; do
+    . /var/users/${c}.config
+    if [ ! -f /home/clients.d/${USERS_NAME}/ssh_config ] ; then
+      echo "error: /home/clients.d/${USERS_NAME}/ssh_config missing!"
+      continue
+    fi
+    
+    port_list=$( grep -o '^[^#]*'  /home/clients.d/${USERS_NAME}/ssh_config | grep "Remote" | awk -F " " '{ print $2 }' )
+    for p in ${port_list} ; do
+      _get_sc_vars /home/clients.d/${USERS_NAME}/ssh_config ${p}
+      fw_rule=$( grep -o '^[^#]*'  /home/clients.d/${USERS_NAME}/ssh_config | grep "RemoteForward ${p}" | awk -F " " '{ print $3 }' )
+      ss -tlnpH | grep "127.0.0.1:${p}" >/dev/null 2>&1
+      active=$?
+      def_color='\e[m'
+      if [ "$active" = "0" ] ; then
+	color='\e[1;92m'
+	status="up"
+      else
+	color='\e[1;91m'
+	status="down"
+      fi
+      if [ "${USERS_LOGIN}" = "0"  ] ; then
+	color='\033[1;30m'  # dark grey
+	status="disable"
+      fi
+      printf "${color}%-12s %-7s %-22s %-8s${def_color}%s\n" ${USERS_NAME} "${p}" "${fw_rule}" "${status}" "# ${sc_desc}"
+    done
+  done
+fi
+#
+# check for established clients
+#
+#printf "\nestablished client ports:\n\n"
+#for i in ${clients} ; do
+#  . /var/users/$i.config
+#  p=$(ps -o pid,args | awk -F " " '{ print $3 $4 " " $1}' | grep "^${USERS_USER} " | cut -d " " -f2 )
+#  ss -tlpn | grep ",pid=${p}," | awk '{ print $4 }' | sed -e "s/^/ ${USERS_USER} /g"
+#done
+

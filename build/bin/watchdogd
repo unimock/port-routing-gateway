@@ -1,0 +1,9 @@
+#!/bin/bash
+
+while true ; do
+  ans=$(echo "ACK" | netcat -l 127.0.0.1 6666)
+  . /var/users/$ans.config
+  date +%s > /home/clients.d/${USERS_NAME}/watchdog.tstamp
+  chmod a+rw /home/clients.d/${USERS_NAME}/watchdog.tstamp
+done
+

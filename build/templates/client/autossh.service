@@ -1,0 +1,22 @@
+#/etc/systemd/system/autossh.service
+
+[Unit]
+Description=AutoSSH tunnel service
+After=network.online.target
+
+[Service]
+User=autossh
+#no explicit autossh monitoring
+Environment="AUTOSSH_PORT=0"
+#start behavior as service
+Environment="AUTOSSH_GATETIME=0"
+#logging level
+Environment="AUTOSSH_LOGLEVEL=7"
+RestartSec=60
+Restart=always
+#-T -N no terminal, port forward only
+ExecStart=/usr/bin/autossh -T -N autossh
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

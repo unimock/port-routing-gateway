@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html> 
+
+<head>
+<style media="screen"> 
+    p { color: black; font-size: 1.1em } 
+    pre { color: navy; font-size: 0.9em } 
+    code { font-family: Courier; color: navy; background-color: rgb(225, 225, 231) } 
+ </style>
+</head>       
+    
+<body>
+
+<h1 id="client-box-installation">client-box installation</h1>
+
+<h2>debian bullseye netinstall iso with minimal install openssh server and system utilities only</h2>
+
+<h2>install additional packages</h2>
+
+<pre><code>apt-get <span class="hljs-keyword">update</span>
+apt-<span class="hljs-keyword">get</span> dist-<span class="hljs-keyword">upgrade</span>
+apt-<span class="hljs-keyword">get</span> <span class="hljs-keyword">install</span> sudo psmisc autossh vim net-tools netcat
+
+wget -O /usr/<span class="hljs-keyword">local</span>/<span class="hljs-keyword">bin</span>/wstunnel https://github.com/erebe/wstunnel/releases/download/v4<span class="hljs-number">.1</span>/wstunnel-x64-linux
+chmod a+x /usr/<span class="hljs-keyword">local</span>/<span class="hljs-keyword">bin</span>/wstunnel
+</code></pre>
+
+<h2>create admin user with sudo access</h2>
+
+<pre><code>admin_user=<span class="hljs-string">""</span>
+useradd <span class="hljs-_">-s</span> /bin/bash <span class="hljs-_">-d</span> /home/<span class="hljs-variable">$user</span>/ -m <span class="hljs-variable">${admin_user}</span>
+usermod <span class="hljs-_">-a</span> -G sudo <span class="hljs-variable">${admin_user}</span>
+vi /home/<span class="hljs-variable">${admin_user}</span>/.ssh/authorized_keys  <span class="hljs-comment"># place pubkey from admin_user</span>
+</code></pre>
+
+<h2>install server prepared installation package</h2>
+
+<p>copy <strong>client_install.tgz.gpg</strong> package to the /tmp directory on <strong>client-box</strong></p>
+<pre><code><span class="hljs-keyword">mkdir</span> /tmp/pkg
+<span class="hljs-keyword">cd</span> /tmp/pkg/
+gpg -o ../client_install.tgz -d ../client_install.tgz.gpg
+tar xzvf ../client_install.tgz
+./install.<span class="hljs-keyword">sh</span>
+<span class="hljs-keyword">rm</span> -r /tmp/pkg
+</code></pre>
+
+<h2>tests</h2>
+
+<pre><code>sudo -u autossh -<span class="hljs-selector-tag">i</span>
+cat .ssh/config
+ssh autossh
+sudo journalctl -u autossh<span class="hljs-selector-class">.service</span>
+sudo systemctl status autossh<span class="hljs-selector-class">.service</span>
+sudo systemctl restart autossh.service
+</code></pre>
+
+
+</body>
+</html>
+

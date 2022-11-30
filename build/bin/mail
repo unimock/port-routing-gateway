@@ -1,0 +1,101 @@
+#!/bin/bash
+. /var/server/environment
+
+if [ "$2" = "" ] ; then
+  echo ""
+  echo "usage: `basename $0` <mail-type> ..."
+  echo ""
+  echo "mail-type: service|package"
+  echo ""
+  echo "`basename $0` service <user-name>|<mail-address>                # send local portforward configuration"
+  echo "`basename $0` package <client-name>  <user-name>|<mail-address> # send client installation package"
+  echo ""
+  exit 0
+fi
+
+if [ "$1" = "test" ] ; then
+   shift
+   swaks $SERVER_SWAKS_PARAM --to ${1} \
+        --header "Subject: testmail from `hostname`"
+   exit $?
+fi
+
+
+
+if [ "$1" = "service" ] ; then
+  shift
+  # check if mail or user
+  if [[ ${1} == *"@"* ]] ; then
+    mail_adress="$1"
+  else
+    USER="$1"
+    if [ ! -f /var/users/$USER.config ] ; then
+      echo "error: unknown user <$USER> given!"
+      exit 1
+    fi
+    . /var/users/$USER.config
+    if [ "$USERS_MAIL" = "" ] ; then
+      echo "error: mail address not configured in users.conf"
+      exit 1
+    fi
+    mail_adress="$USERS_MAIL"
+  fi
+  FI=$( mktemp )
+  cp /templates/mail/service.html $FI
+  TEMPLATE_HOSTNAME=$( hostname )
+  TEMPLATE_SSH_CONFIG="config.$(hostname | cut -f1 -d ".").clients"
+  sed -i -e"s/TEMPLATE_HOSTNAME/$TEMPLATE_HOSTNAME/g" $FI
+  sed -i -e"s/TEMPLATE_SSH_CONFIG/$TEMPLATE_SSH_CONFIG/g" $FI
+  chs service > /tmp/$TEMPLATE_SSH_CONFIG
+  swaks $SERVER_SWAKS_PARAM --to ${mail_adress} \
+  	--header "Subject: $TEMPLATE_HOSTNAME local port forward configuration" \
+  	--attach-type "text/html"  --attach-body @$FI \
+        --attach-type "text/plain" --attach @/tmp/$TEMPLATE_SSH_CONFIG 
+  ret=$?
+  rm /tmp/$TEMPLATE_SSH_CONFIG
+  rm $FI
+  exit $ret
+fi
+if [ "$1" = "package" ] ; then
+  shift
+  if [ "$1" = "" ] ; then
+     echo "error: no client-name given"
+     exit 1
+  fi
+  if [ ! -f /home/clients.d/$1/client_install.tgz ] ; then
+     echo "error: archive </home/clients.d/$1/client_install.tgz> does not exist"
+     exit 1
+  fi
+  client_name="$1"
+  shift
+  # check if mail or user
+  if [[ ${1} == *"@"* ]] ; then
+    mail_adress="$1"
+  else
+    USER="$1"
+    if [ ! -f /var/users/$USER.config ] ; then
+      echo "error: unknown user <$USER> given!"
+      exit 1
+    fi
+    . /var/users/$USER.config
+    if [ "$USERS_MAIL" = "" ] ; then
+      echo "error: mail address not configured in users.conf"
+      exit 1
+    fi
+    mail_adress="$USERS_MAIL"
+  fi
+  cp /home/clients.d/${client_name}/client_install.tgz /tmp
+  gpg -c /tmp/client_install.tgz
+  FI=$( mktemp )
+  cp /templates/mail/package.html $FI
+  TEMPLATE_HOSTNAME=$( hostname )
+  swaks $SERVER_SWAKS_PARAM --to ${mail_adress} \
+        --header "Subject: $TEMPLATE_HOSTNAME: ${client_name} installation package " \
+        --attach-type "text/html"                --attach-body @$FI \
+        --attach-type "application/octet-stream" --attach @/tmp/client_install.tgz.gpg
+        #--attach-type "application/tar+gzip" --attach @/tmp/client_install.tgz
+  ret=$?
+  rm $FI
+  rm -f /tmp/client_install.tgz*
+  exit $ret
+fi

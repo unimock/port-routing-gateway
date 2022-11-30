@@ -1,0 +1,13 @@
+## system user definitions
+##
+##    login=0 ........ disable login access
+##    login=1 ........ enable login without sudo access (service-user)
+##    login=2 ........ enable login with sudo access    (service-admin-user)
+##
+##    type=service ... service user accounts
+##    type=client .... client systems
+##    type=cl-mgmt ... client management directory
+##
+##-----------------------------------------------------------------------------------------
+##user       ; uid   ; group   ;  gid  ;login;  type   ;  name   ; mail_address ; ws-auth
+##-----------------------------------------------------------------------------------------

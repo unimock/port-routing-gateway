@@ -1,0 +1,15 @@
+#/etc/systemd/system/autossh-watchdog.service
+
+[Unit]
+Description=AutoSSH tunnel watchdog service
+After=network.online.target
+
+[Service]
+User=autossh
+RestartSec=60
+Restart=always
+ExecStart=/home/autossh/autossh-watchdog
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

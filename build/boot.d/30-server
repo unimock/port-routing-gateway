@@ -1,0 +1,14 @@
+#!/bin/bash
+
+if [ -f /templates/ssh_config -a "${CLIENT_WSS_URL}" != "" ] ; then
+  cp /templates/ssh_config                           /templates/ssh_config.server
+  sed -i -e "s|<CLIENT_WSS_URL>|${CLIENT_WSS_URL}|g" /templates/ssh_config.server
+  chmod 644                    /templates/ssh_config /templates/ssh_config.server
+fi
+
+mkdir -p /var/server
+echo "SERVER_SSHD_PORT=\"${SERVER_SSHD_PORT}\""      > /var/server/environment
+echo "SERVER_SWAKS_PARAM=\"${SERVER_SWAKS_PARAM}\""  >>/var/server/environment
+
+chmod a+r /var/server/environment
+exit 0

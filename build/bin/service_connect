@@ -1,0 +1,81 @@
+#!/bin/bash
+
+_get_sc_vars()
+{
+  unset sc_port sc_host sc_desc sc_type sc_info sc_polling
+  eval $(grep "#RF-${2}:" ${1} | sed -e "s/.*#RF-[0-9]*: *//g" | sed -e "s/ *; */\n/g" | sed -e "s/^/sc_/g" | sed -e 's/\$/$sc_/g' )
+}
+
+_print()
+{
+    if [ ! -f /home/clients.d/${USERS_NAME}/ssh_config ] ; then
+      echo "error: /home/clients.d/${USERS_NAME}/ssh_config missing!"
+      exit 1
+    fi
+    etc_hosts=$(mktemp)
+    clear
+    printf "\n"
+    printf "local port forwarding for  : %s\n" "${USERS_NAME}"
+    printf "last heartbeat from client : %s\n" "$last_heartbeat"
+    printf "\n"
+
+    port_list=$( grep -o '^[^#]*'  /home/clients.d/${USERS_NAME}/ssh_config | grep "Remote" | awk -F " " '{ print $2 }' )
+    first="1"
+    for p in ${port_list} ; do
+      _get_sc_vars /home/clients.d/${USERS_NAME}/ssh_config ${p}
+      fw_rule=$( grep -o '^[^#]*'  /home/clients.d/${USERS_NAME}/ssh_config | grep "RemoteForward ${p}" | awk -F " " '{ print $3 }' )
+      ss -tlnpH | grep "127.0.0.1:${p}" >/dev/null 2>&1
+      active=$?
+      if [ "$sc_port" != "" ] ; then
+	p="$sc_port"
+      fi
+      def_color='\e[m'
+      if [ "$active" = "0" ] ; then
+        color='\e[1;92m'
+        status="up"
+      else
+        color='\e[1;91m'
+        status="down"
+      fi
+      if [ "$first" = "1" ] ; then
+              printf "%-6s %-21s %-30s %s\n"            "lport" "target" "url/command" "# description"
+      fi
+      printf "${color}%-6s %-21s %-30s ${def_color}%s\n" "${p}" "${fw_rule}" "${sc_info}" "# ${sc_desc}"
+      if [ "${sc_host}" != "" ] ; then
+	echo "127.0.0.1 ${sc_host}    # $USERS_NAME:${sc_desc}" >> ${etc_hosts}
+      fi 
+      first="0"
+    done
+    if [ -s ${etc_hosts} ] ; then
+      printf "\n"
+      printf "local /etc/hosts entries:\n"
+      cat ${etc_hosts}
+      rm -f ${etc_hosts}
+    fi
+    printf "\n"
+    printf "\n"
+    printf "type <STRG>-c to quit\n"
+}
+
+USERS_NAME="$1"
+prev_tstamp=""
+
+while true ; do
+  if [ ! -f /home/clients.d/${USERS_NAME}/watchdog.tstamp ] ; then
+    tstamp="none"
+    last_heartbeat="none"
+  else
+    tstamp=$( cat /home/clients.d/${USERS_NAME}/watchdog.tstamp )
+    last_heartbeat=$( date -d @$tstamp +"%Y-%m-%d %H:%M:%S" )
+  fi
+  if [ "$tstamp" != "$prev_tstamp" ] ; then
+    _print
+    prev_tstamp="$tstamp"    
+  fi
+  #read -s -t 1 -n 1 answer 2> /dev/null
+  #if [ "$answer" = "q" ] ; then
+  #  printf "\n"
+  #  exit 0
+  #fi
+done
+

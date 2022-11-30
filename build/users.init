@@ -1,0 +1,5 @@
+clients.d    ; 1000  ; service ; 1000  ;  0  ; cl-mgmt ;         ;                    ;
+#sadmin       ; 1001  ; service ; 1000  ;  2  ; service ;         ; sadmin@example.com ;
+#suser        ; 1002  ; service ; 1000  ;  1  ; service ;         ; suser@example.com  ;
+#cl01         ; 11000 ; clients ; 2000  ;  1  ; client  ;cust-box1;                    ; basic-auth
+#cl02         ; 12000 ; clients ; 2000  ;  1  ; client  ;cust-box2;                    ; basic-auth 

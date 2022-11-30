@@ -1,0 +1,38 @@
+#!/bin/bash
+
+. /var/users/$USER.config
+
+if [ "${USERS_LOGIN}" != "2" ] ; then
+  echo "error: you do not have sudo access"
+  exit 1
+fi
+
+CMD="$1"
+shift
+if [ "$CMD" != "vi" ] ; then
+  echo ""
+  echo "usage: `basename $0`   vi <file>"
+  echo ""
+  echo "examples:"
+  echo ""
+  echo "`basename $0` vi /service/users.conf"
+  echo "`basename $0` vi /home/<client-user>/.ssh/authorized_keys"
+  echo ""
+  exit 0
+fi
+
+if [ "$CMD" = "vi" ] ; then
+  FI="$1"
+  shift
+  if [ "$FI" = "" ] ; then
+    echo "error: no file given"
+    exit 1
+  fi
+  prev=$(sudo md5sum $FI 2>/dev/null)
+  sudo vi $FI
+  if [ "$prev" != "$(sudo md5sum $FI 2>/dev/null)" ] ; then
+    sudo /boot.d/40-users
+  fi
+fi
+exit 0
+
