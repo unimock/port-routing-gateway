@@ -19,10 +19,11 @@
 
 <pre><code>apt-get <span class="hljs-keyword">update</span>
 apt-<span class="hljs-keyword">get</span> dist-<span class="hljs-keyword">upgrade</span>
-apt-<span class="hljs-keyword">get</span> <span class="hljs-keyword">install</span> sudo psmisc autossh vim net-tools netcat
+apt-<span class="hljs-keyword">get</span> <span class="hljs-keyword">install</span> sudo psmisc autossh vim net-tools netcat gpiod
 
 wget -O /usr/<span class="hljs-keyword">local</span>/<span class="hljs-keyword">bin</span>/wstunnel https://github.com/erebe/wstunnel/releases/download/v4<span class="hljs-number">.1</span>/wstunnel-x64-linux
 chmod a+x /usr/<span class="hljs-keyword">local</span>/<span class="hljs-keyword">bin</span>/wstunnel
+chmod a+s /usr/<span class="hljs-keyword">local</span>/<span class="hljs-keyword">bin</span>/gpioset
 </code></pre>
 
 <h2>create admin user with sudo access</h2>
