@@ -15,8 +15,8 @@ The only exception is that the service-admin-user is allowed to create new users
 
 ```
 git clone 
-cd callhome-docker-server
-docker-compose build
+cd prg-docker
+docker compose build
 ```
 
 2. configure environment
@@ -24,13 +24,13 @@ docker-compose build
 ```
 cp .env-template .env
 vi .env
-cp docker-compose.yml-template docker-compose.yml
-vi docker-compose.yml
-docker-compose up -d
+cp docker compose.yml-template docker compose.yml
+vi docker compose.yml
+docker compose up -d
 # test your swaks settings
 EMAIL="your.mail@example.com"
 SERVICE="ch01"
-docker-compose exec $SERVICE mail test $EMAIL
+docker compose exec $SERVICE mail test $EMAIL
 ```
 
 3. create a first **service-admin-user** (login=2)
@@ -38,10 +38,10 @@ docker-compose exec $SERVICE mail test $EMAIL
 ```
 SERVICE_ADMIN_USER="hugo"
 vi service/users.conf # add service-admin-user. Example: "hugo ; 1001  ; service ; 1000  ;  2 ; service ;;"
-docker-compose down ; docker-compose up -d
+docker compose down ; docker compose up -d
 vi ./home/${SERVICE_ADMIN_USER}/.ssh/authorized_keys  # paste users pubkey
-docker-compose down ; docker-compose up -d
-docker-compose logs -f
+docker compose down ; docker compose up -d
+docker compose logs -f
 ```
 
 4. test **service-admin-user** access and get your service host declaration for your **service-user** and place it in your local .ssh/config
