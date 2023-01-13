@@ -5,3 +5,4 @@
 /service
 /.env
 /users.env
+/dc-service.yml

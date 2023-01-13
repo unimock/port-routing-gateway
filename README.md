@@ -24,8 +24,8 @@ docker compose build
 ```
 cp .env-template .env
 vi .env
-cp docker compose.yml-template docker compose.yml
-vi docker compose.yml
+cp docker compose.yml-template docker-compose.yml
+vi docker-compose.yml
 docker compose up -d
 # test your swaks settings
 EMAIL="your.mail@example.com"
