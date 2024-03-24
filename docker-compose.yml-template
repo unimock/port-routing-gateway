@@ -7,6 +7,12 @@ services:
     build:
       context: ./build
       dockerfile: Dockerfile
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
+      args:
+        ALPINE_IMAGE: alpine:3.19
     ##################################################
     # RUN / UP - section
     ##################################################

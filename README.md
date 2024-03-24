@@ -16,7 +16,7 @@ The only exception is that the service-admin-user is allowed to create new users
 ```
 git clone 
 cd prg-docker
-docker compose build
+docker buildx bake --push
 ```
 
 2. configure environment

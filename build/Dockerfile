@@ -1,4 +1,5 @@
-FROM alpine:3.16
+ARG  ALPINE_IMAGE="alpine:latest"
+FROM ${ALPINE_IMAGE}
 
 RUN apk add --no-cache \
       bash \
