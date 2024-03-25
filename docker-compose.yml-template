@@ -13,6 +13,7 @@ services:
           - linux/arm64
       args:
         ALPINE_IMAGE: alpine:3.19
+        WSTUNNEL_VERSION: 9.2.4
     ##################################################
     # RUN / UP - section
     ##################################################

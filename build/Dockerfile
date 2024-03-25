@@ -1,6 +1,8 @@
 ARG  ALPINE_IMAGE="alpine:latest"
 FROM ${ALPINE_IMAGE}
 
+ARG  WSTUNNEL_VERSION="9.2.4"
+
 RUN apk add --no-cache \
       bash \
       shadow \
@@ -47,6 +49,12 @@ RUN rm -f /etc/motd
 
 COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN   mkdir -p     /usr/local/bin
+
+ARG TARGETPLATFORM
+RUN echo "$TARGETPLATFORM"
+
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then A="amd64" ; else A="arm64" ; fi && \
+  wget  -qO- https://github.com/erebe/wstunnel/releases/download/v${WSTUNNEL_VERSION}/wstunnel_${WSTUNNEL_VERSION}_linux_${A}.tar.gz | tar -C /usr/local/bin -xzf - wstunnel
 COPY  ./bin/*      /usr/local/bin/
 RUN   chmod -R a+x /usr/local/bin
 COPY  ./boot.d     /boot.d
