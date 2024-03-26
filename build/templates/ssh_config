@@ -6,13 +6,13 @@ StrictHostKeyChecking no
 
 Host autossh
 	User <USERS_USER>
-        Hostname 127.0.0.1
-	ProxyCommand /usr/local/bin/wstunnel --upgradeCredentials=<USERS_WS_AUTH> --websocketPingFrequencySec=30 -L stdio:127.0.0.1:22 <CLIENT_WSS_URL>
-        #################################################################
-        # #RF-<port>: <variable>=<value>;<variable>=<value>
-        #    supported variables:
-        #       port ... special local port on support-client
-        #       host ... special hostname on support-client 
+  Hostname 127.0.0.1
+  ProxyCommand /usr/local/bin/wstunnel client --http-upgrade-credentials <USERS_WS_AUTH> --websocket-ping-frequency-sec 30 -L stdio://127.0.0.1:22 <CLIENT_WSS_URL>
+  #################################################################
+  # #RF-<port>: <variable>=<value>;<variable>=<value>
+  #    supported variables:
+  #       port ... special local port on support-client
+  #       host ... special hostname on support-client 
 	#       type ... define special services (autossh)
 	#       desc ... site-description
 	#       info ... info output for support-client (command,url,..)

@@ -99,7 +99,9 @@ apt-get dist-upgrade
 apt-get install sudo psmisc autossh vim net-tools netcat gpiod
 chmod a+s /usr/bin/gpioset
 
-wget -O /usr/local/bin/wstunnel https://github.com/erebe/wstunnel/releases/download/v4.1/wstunnel-x64-linux
+URL=https://github.com/erebe/wstunnel/releases/download/v9.2.4/wstunnel_9.2.4_linux_amd64.tar.gz
+URL=https://github.com/erebe/wstunnel/releases/download/v9.2.4/wstunnel_9.2.4_linux_arm64.tar.gz
+wget -O /usr/local/bin/wstunnel $URL
 chmod a+x /usr/local/bin/wstunnel
 ```
 

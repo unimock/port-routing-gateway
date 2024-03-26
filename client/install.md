@@ -9,7 +9,9 @@ apt-get update
 apt-get dist-upgrade
 apt-get install sudo psmisc autossh vim net-tools netcat
 
-wget -O /usr/local/bin/wstunnel https://github.com/erebe/wstunnel/releases/download/v4.1/wstunnel-x64-linux
+URL=https://github.com/erebe/wstunnel/releases/download/v9.2.4/wstunnel_9.2.4_linux_amd64.tar.gz
+URL=https://github.com/erebe/wstunnel/releases/download/v9.2.4/wstunnel_9.2.4_linux_arm64.tar.gz
+wget -O /usr/local/bin/wstunnel $URL
 chmod a+x /usr/local/bin/wstunnel
 ```
 ## create admin users and put them into sudo group
@@ -51,7 +53,7 @@ i.e. florida on callhome-server and put the pubkey from 6. into users home, adju
 
 * if everything works killall autossh
 
-* create the systemd service from https://github.com/unimock/callhome-server-docker/tree/master/callhome-client and start it
+* create the systemd service from https://github.com/unimock/prg-docker/tree/master/callhome-client and start it
 
 ## install and activate services 
 
