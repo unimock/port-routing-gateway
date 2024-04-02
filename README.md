@@ -24,7 +24,7 @@ docker buildx bake --push
 ```
 cp .env-template .env
 vi .env
-cp docker compose.yml-template docker-compose.yml
+cp docker-compose.yml-template docker-compose.yml
 vi docker-compose.yml
 docker compose up -d
 # test your swaks settings
@@ -116,7 +116,7 @@ usermod -a -G sudo ${admin_user}
 vi /home/${admin_user}/.ssh/authorized_keys  # place pubkey from admin_user
 ```
 
-4. install server prepared installation package
+4. install a prepared server installation package
 
 copy **client_install.tgz** package to the /tmp directory on **client-box**
 
